@@ -1,0 +1,46 @@
+version: '3'
+services:
+    book-service-db:
+        image: postgres:13
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: book_db
+        ports:
+          - "5432:5432" 
+
+    order-service-db:
+        image: postgres:13
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: order_db
+        ports:
+          - "5433:5432" 
+
+    
+    book-service:
+        build: ./book_service
+        ports:
+            - "5002:5002"
+        restart: always
+        environment:
+            - DATABASE_URL=postgresql://root:admin@book-service-db:5432/book_db
+            - PORT=5002
+        depends_on:
+          - book-service-db
+        volumes:
+          - ./book_service:/code
+
+    order-service:
+        build: ./order_service
+        ports:
+            - "5003:5003"
+        restart: always
+        environment:
+            - DATABASE_URL=postgresql://root:admin@order-service-db:5432/order_db
+            - PORT=5003
+        depends_on:
+          - order-service-db
+        volumes:
+          - ./order_service:/code
