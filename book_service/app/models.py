@@ -1,4 +1,5 @@
 from app import db,bcrypt
+from sqlalchemy.dialects.postgresql import UUID
 
 class Book(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -11,7 +12,14 @@ class Book(db.Model):
     def __repr__(self):
         return f"<Book {self.title} by {self.author}>"
     
-
+class Order(db.Model):
+    id = db.Column(UUID(as_uuid=True), primary_key=True,autoincrement=False)
+    book_id = db.Column(db.String, nullable=False)
+    user_id = db.Column(db.Integer, nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    total = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String, nullable=False)
 
 class User(db.Model):
     

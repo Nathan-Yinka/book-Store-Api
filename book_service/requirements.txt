@@ -21,3 +21,4 @@ SQLAlchemy==2.0.30
 typing_extensions==4.12.0
 Werkzeug==3.0.3
 requests
+pika

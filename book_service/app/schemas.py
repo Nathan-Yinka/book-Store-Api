@@ -64,3 +64,14 @@ class OrderSchema(Schema):
             raise ValidationError("Book ID must be validated before quantity")
         if book.available_quantity < value:
             raise ValidationError("Book quantity is more than current stock")
+        
+
+
+class GetOrderSchema(Schema):
+    id = fields.UUID()
+    book_id = fields.Int()
+    user_id = fields.Int()
+    quantity = fields.Int()
+    price = fields.Float()
+    total = fields.Float()
+    status = fields.Str()

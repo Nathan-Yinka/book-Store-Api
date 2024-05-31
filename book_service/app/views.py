@@ -1,21 +1,46 @@
+import json
+from threading import Thread
 import requests
 from flask import request, jsonify
 from marshmallow import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity,create_refresh_token
 
 from app import app
 from app import db
-from app.schemas import BookSchema,UserSchema,OrderSchema
-from app.models import Book,User
+from app.schemas import BookSchema,UserSchema,OrderSchema,GetOrderSchema
+from app.models import Book,User,Order
+from .connection import publish_message
+from .connection import consume_messages
 
 
 book_schema = BookSchema()
 user_schema = UserSchema()
 order_schema = OrderSchema()
+get_order_schema = GetOrderSchema()
+
+def order_callback(message):
+    try:
+        data = json.loads(message)
+        order = Order(**data)
+        with app.app_context():
+            db.session.add(order)
+            db.session.commit()
+        print("order created")
+    except Exception as err:
+        raise Exception(err)
+    
+def start_consuming():
+    thread = Thread(target=consume_messages, args=("order", order_callback))
+    thread.daemon = True
+    thread.start()
+
+start_consuming()
 
 
 @app.route('/books', methods=['GET'])
 def get_books():
+    publish_message("hello","book")
     books = Book.query.all()
     serialized_books = book_schema.dump(books, many=True)
     return jsonify(serialized_books), 200
@@ -42,8 +67,61 @@ def add_book():
     db.session.commit()
 
     return jsonify(book_schema.dump(book)), 201
+    
+    
+@app.route("/order", methods=["POST"])
+@jwt_required()
+def place_order():
+    data = request.get_json()
+    
+    try:
+        order_data = order_schema.load(data)
+    except ValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    book_id = order_data['book_id']
+    book = Book.query.get(book_id)
+    price = book.price
+    quantity = order_data['quantity']
+    
+    user_id = get_jwt_identity()
+    
+    order_data = {
+        "book_id": book_id,
+        "quantity": quantity,
+        "price":price,
+        "user_id" : user_id
+    }
+    ORDER_SERVICE_URL ="http://order-service:5003/order"
+    try:
+        response = requests.post(ORDER_SERVICE_URL, json=order_data)
+        response.raise_for_status()
+        return jsonify(response.json()), response.status_code
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+    
 
+@app.route("/order", methods=["GET"])   
+@app.route("/order/<uuid:order_id>", methods=["GET"])   
+@jwt_required()
+def get_order(order_id=None):
+    user_id = get_jwt_identity()
+    try:
+        if order_id:
+            order = Order.query.filter_by(id=order_id, user_id=user_id).first()
+            if not order:
+                return jsonify({"error": "Order not found"}), 404
+            result = get_order_schema.dump(order)
+        else:
+            orders = Order.query.filter_by(user_id=user_id).all()
+            result = get_order_schema.dump(orders, many=True)
+        return jsonify(result), 200
+    except SQLAlchemyError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 
+#  Authentication Routes
 @app.route("/register", methods=['POST'])
 def register():
     data = request.get_json()
@@ -77,39 +155,7 @@ def login():
         return jsonify(access_token=access_token,refresh_token=refresh_token), 200
     
     else:
-        return jsonify({'message': 'Invalid credentials'}), 401
-    
-    
-@app.route("/order", methods=["POST"])
-@jwt_required()
-def place_order():
-    data = request.get_json()
-    
-    try:
-        order_data = order_schema.load(data)
-    except ValidationError as err:
-        return jsonify({"error": err.messages}), 400
-    book_id = order_data['book_id']
-    book = Book.query.get(book_id)
-    price = book.price
-    quantity = order_data['quantity']
-    
-    user_id = get_jwt_identity()
-    
-    order_data = {
-        "book_id": book_id,
-        "quantity": quantity,
-        "price":price,
-        "user_id" : user_id
-    }
-    ORDER_SERVICE_URL ="http://order-service:5003/order"
-    try:
-        response = requests.post(ORDER_SERVICE_URL, json=order_data)
-        response.raise_for_status()
-        return jsonify(response.json()), response.status_code
-    except requests.RequestException as e:
-        return jsonify({"error": str(e)}), 500
-    
+        return jsonify({'message': 'Invalid credentials'}), 401   
     
 @app.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)

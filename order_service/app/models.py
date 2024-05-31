@@ -1,8 +1,9 @@
 from app import db
 import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
 class Order(db.Model):
-    id = db.Column(db.String, primary_key=True)
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     book_id = db.Column(db.String, nullable=False)
     user_id = db.Column(db.Integer, nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
@@ -11,7 +12,6 @@ class Order(db.Model):
     status = db.Column(db.String, nullable=False)
     
     def __init__(self, book_id,user_id, quantity, price):
-        self.id = str(uuid.uuid4())
         self.book_id = book_id
         self.user_id = user_id
         self.quantity = quantity

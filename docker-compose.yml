@@ -7,7 +7,7 @@ services:
           POSTGRES_PASSWORD: admin
           POSTGRES_DB: book_db
         ports:
-          - "5432:5432" 
+          - "5434:5432" 
 
     order-service-db:
         image: postgres:13
@@ -24,11 +24,13 @@ services:
         ports:
             - "5002:5002"
         restart: always
+        command: ["./wait-for-it.sh", "rabbitmq:5672", "--", "python", "run.py"]
         environment:
             - DATABASE_URL=postgresql://root:admin@book-service-db:5432/book_db
             - PORT=5002
         depends_on:
           - book-service-db
+          - rabbitmq
         volumes:
           - ./book_service:/code
 
@@ -37,10 +39,22 @@ services:
         ports:
             - "5003:5003"
         restart: always
+        command: ["./wait-for-it.sh", "rabbitmq:5672", "--", "python", "run.py"]
         environment:
             - DATABASE_URL=postgresql://root:admin@order-service-db:5432/order_db
             - PORT=5003
         depends_on:
           - order-service-db
+          - rabbitmq
         volumes:
           - ./order_service:/code
+
+    rabbitmq:
+      image: rabbitmq:management
+      restart: always
+      container_name: store_rabbitmq
+      ports:
+        - 5672:5672
+        - 15672:15672
+
+        
