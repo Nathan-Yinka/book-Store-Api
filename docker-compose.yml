@@ -18,6 +18,15 @@ services:
         ports:
           - "5433:5432" 
 
+    inventory-service-db:
+        image: postgres:13
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: inventory_db
+        ports:
+          - "5431:5432" 
+
     
     book-service:
         build: ./book_service
@@ -48,6 +57,22 @@ services:
           - rabbitmq
         volumes:
           - ./order_service:/code
+
+
+    inventory-service:
+        build: ./inventory_service
+        ports:
+            - "5001:5001"
+        restart: always
+        command: ["./wait-for-it.sh", "rabbitmq:5672", "--", "python", "run.py"]
+        environment:
+            - DATABASE_URL=postgresql://root:admin@inventory-service-db:5432/inventory_db
+            - PORT=5001
+        depends_on:
+          - inventory-service-db
+          - rabbitmq
+        volumes:
+          - ./inventory_service:/code
 
     rabbitmq:
       image: rabbitmq:management

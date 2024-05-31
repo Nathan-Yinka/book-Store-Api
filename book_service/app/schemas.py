@@ -18,7 +18,7 @@ class BookSchema(Schema):
         
     @validates('available_quantity')
     def validate_available_quantity(self, value):
-        if value < 0:
+        if value < 1:
             raise ValidationError('Available quantity must be greater than or equal to zero.')
         
 class UserSchema(Schema):

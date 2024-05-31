@@ -39,8 +39,6 @@ def publish_message(message,method,queue):
     
     
     
-    
-    
 # Function to consume messages from RabbitMQ
 def consume_messages(queue, callback):
     connection = get_rabbitmq_connection()

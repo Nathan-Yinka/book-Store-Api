@@ -19,28 +19,46 @@ user_schema = UserSchema()
 order_schema = OrderSchema()
 get_order_schema = GetOrderSchema()
 
-def order_callback(message):
-    try:
-        data = json.loads(message)
-        order = Order(**data)
-        with app.app_context():
-            db.session.add(order)
-            db.session.commit()
-        print("order created")
-    except Exception as err:
-        raise Exception(err)
+def callback(message,properties):
+    with app.app_context():
+        try:
+            data = json.loads(message)
+            if properties.content_type == "order_created":
+                order = Order(**data)
+                db.session.add(order)
+                db.session.commit()
+                print("order created")
+                
+            elif properties.content_type == "order_updated":
+                order = Order.query.filter_by(id=data["id"]).first()
+                if order:
+                    order.status = data["status"]
+                    db.session.add(order)
+                    db.session.commit()
+                    print("order updated")
+                        
+            elif properties.content_type == "stock_updated":
+                book = Book.query.filter_by(id=data["book_id"]).first()
+                if book:
+                    book.available_quantity = data["quantity"]
+                    db.session.add(book)
+                    db.session.commit()
+                    print("book stock updated")
+                
+        except Exception as err:
+            print(err)
+            raise Exception(err)
     
-def start_consuming():
-    thread = Thread(target=consume_messages, args=("order", order_callback))
+def start_consuming(queue,callback):
+    thread = Thread(target=consume_messages, args=(queue, callback))
     thread.daemon = True
     thread.start()
 
-start_consuming()
+start_consuming("book",callback)
 
 
 @app.route('/books', methods=['GET'])
 def get_books():
-    publish_message("hello","book")
     books = Book.query.all()
     serialized_books = book_schema.dump(books, many=True)
     return jsonify(serialized_books), 200
@@ -65,8 +83,10 @@ def add_book():
     book = Book(**book_data)
     db.session.add(book)
     db.session.commit()
+    book_data = book_schema.dump(book)
+    publish_message(json.dumps(book_data),"book_created","inventory")
 
-    return jsonify(book_schema.dump(book)), 201
+    return jsonify(book_data), 201
     
     
 @app.route("/order", methods=["POST"])
