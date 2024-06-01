@@ -37,6 +37,7 @@ services:
         environment:
             - DATABASE_URL=postgresql://root:admin@book-service-db:5432/book_db
             - PORT=5002
+            - OPEN_API_KEY=sk-proj-OpxxGWjx4aFNvIC96V9OT3BlbkFJszSBNFPAsp3w7idvyjsw
         depends_on:
           - book-service-db
           - rabbitmq
