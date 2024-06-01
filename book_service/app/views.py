@@ -290,7 +290,7 @@ def get_cart():
 
 
 
-# SocketIO connection event
+#----------------------------------------- SocketIO connection event-----------------------------------------------
 @socketio.on('connect')
 def handle_connect():
     token = extract_token_from_header(request.headers.get('Authorization'))
