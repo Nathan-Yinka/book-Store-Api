@@ -50,7 +50,8 @@ def consume_messages(queue, callback):
             message = body.decode()
             callback(message, properties)
             ch.basic_ack(delivery_tag=method.delivery_tag)
-        except Exception:
+        except Exception as err:
+            print(err)
             print("message not consumed")
     
     channel.basic_consume(queue=queue, on_message_callback=on_message_callback)
@@ -59,3 +60,4 @@ def consume_messages(queue, callback):
     channel.start_consuming()
     
     channel.close()
+    

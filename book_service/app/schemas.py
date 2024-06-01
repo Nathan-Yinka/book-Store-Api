@@ -1,6 +1,6 @@
 from marshmallow import fields, validates, ValidationError,Schema,pre_load,validate
 
-from .models import Book,User
+from .models import User
 
 # To serialize the data
 class BookSchema(Schema):
@@ -10,6 +10,7 @@ class BookSchema(Schema):
     price = fields.Float(required=True)
     available_quantity = fields.Int(required=True)
     description = fields.Str(required=True)
+    content = fields.Str(required=True)
     
     @validates('price')
     def validate_price(self, value):
@@ -45,33 +46,3 @@ class UserSchema(Schema):
             data['username'] = data['username'].strip()
         return data
     
-    
-class OrderSchema(Schema):
-    quantity = fields.Int(required=True, validate=validate.Range(min=1))
-    book_id = fields.Int(required=True)
-
-    @validates("book_id")
-    def validate_id(self, value):
-        book = Book.query.get(value)
-        if not book:
-            raise ValidationError("Book with id '{}' not found".format(value))
-        self.context["book"] = book
-
-    @validates("quantity")
-    def validate_quantity(self, value):
-        book = self.context.get("book")
-        if not book:
-            raise ValidationError("Book ID must be validated before quantity")
-        if book.available_quantity < value:
-            raise ValidationError("Book quantity is more than current stock")
-        
-
-
-class GetOrderSchema(Schema):
-    id = fields.UUID()
-    book_id = fields.Int()
-    user_id = fields.Int()
-    quantity = fields.Int()
-    price = fields.Float()
-    total = fields.Float()
-    status = fields.Str()

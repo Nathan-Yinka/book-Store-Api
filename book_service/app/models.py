@@ -8,18 +8,10 @@ class Book(db.Model):
     description = db.Column(db.String(500), nullable=False)
     available_quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
+    content = db.Column(db.String, nullable=True)
     
     def __repr__(self):
         return f"<Book {self.title} by {self.author}>"
-    
-class Order(db.Model):
-    id = db.Column(UUID(as_uuid=True), primary_key=True,autoincrement=False)
-    book_id = db.Column(db.String, nullable=False)
-    user_id = db.Column(db.Integer, nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    total = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String, nullable=False)
 
 class User(db.Model):
     
@@ -43,3 +35,12 @@ class User(db.Model):
     def __repr__(self):
         return self.username
         
+        
+class CartItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    quantity = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
+
+    user = db.relationship('User', backref=db.backref('cart_items', lazy=True))
+    book = db.relationship('Book', backref=db.backref('cart_items', lazy=True))

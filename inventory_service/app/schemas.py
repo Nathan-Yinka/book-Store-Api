@@ -21,6 +21,3 @@ class InventorySchema(Schema):
     book_id = fields.Int(required=True)
     quantity = fields.Int(required=True)
             
-
-
-        

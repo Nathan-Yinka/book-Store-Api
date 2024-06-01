@@ -5,65 +5,75 @@ from flask import request, jsonify
 
 from app import app
 from app import db
-from .schemas import OrderInventorySchema,InventorySchema
+from .schemas import OrderInventorySchema, InventorySchema
 from .models import Inventory
 from .connection import consume_messages
 from .connection import publish_message
 
+# Initialize schemas
 order_inventory_schema = OrderInventorySchema()
 inventory_schema = InventorySchema()
 
-def callback(message,properties):
+# Callback function to handle incoming messages from the queue
+def callback(message, properties):
     with app.app_context():
         try:
             data = json.loads(message)
+            
             if properties.content_type == "order_created":
-                try:
-                    order_data = order_inventory_schema.load(data)
-                except ValidationError as err:
-                    print(err)
-                    publish_message(json.dumps(data),"order_error","order")
-                    return
-                print(order_data["book_id"])
-                inventory_item = Inventory.query.filter_by(book_id=order_data["book_id"]).first()
-                quantity = order_data['quantity']
+                order_id = data.get("order_id")
+                error = None
                 
-                if inventory_item.quantity < quantity:
-                    publish_message(json.dumps(data),"order_error","order")
-                    update_inventory(inventory_item,inventory_item.quantity)
-                else:
-                    remaining_quantity = inventory_item.quantity - quantity
-                    update_inventory(inventory_item,remaining_quantity)
+                # Process each item in the order
+                for item in data['inventory_updates']:
+                    book_id = item.get('book_id')
+                    quantity = item.get('quantity')
                     
+                    # Retrieve the inventory item
+                    inventory_item = Inventory.query.get(book_id)
+                    
+                    if inventory_item:
+                        if inventory_item.quantity >= quantity:
+                            # Update the inventory if there's enough stock
+                            remaining_quantity = inventory_item.quantity - quantity
+                            update_inventory(inventory_item, remaining_quantity)
+                        else:
+                            # Handle the case where there's not enough stock
+                            error = True
+                            update_inventory(inventory_item, 0)
+                
+                if error:
+                    # Publish a message indicating an error with the order
+                    publish_message(json.dumps({"order_id": order_id}), "order_error", "order")
                     
             elif properties.content_type == "book_created":
-                item = Inventory(book_id=data["id"],quantity=data["available_quantity"])
+                # Add new book to the inventory
+                item = Inventory(book_id=data["id"], quantity=data["available_quantity"])
                 db.session.add(item)
                 db.session.commit()
-                print("added to inventory")
-            
-        
+                print("Added to inventory")
+                
         except Exception as err:
             print(err)
             raise Exception(err)
-    
-def start_consuming(queue,callback):
+
+# Function to start consuming messages from the specified queue
+def start_consuming(queue, callback):
     thread = Thread(target=consume_messages, args=(queue, callback))
     thread.daemon = True
     thread.start()
 
-start_consuming("inventory",callback)
+start_consuming("inventory", callback)
 
-def update_inventory(inventory_item,quantity):
+# Function to update inventory and publish a stock update message
+def update_inventory(inventory_item, quantity):
     inventory_item.quantity = quantity
     
     db.session.add(inventory_item)
     db.session.commit()
-    print(inventory_item.quantity)
-    print(inventory_item.quantity)
-    print(inventory_item.quantity)
-    print(inventory_item.quantity)
-    data = inventory_schema.dump(inventory_item)
-    print("send book stock")
-    publish_message(json.dumps(data),"stock_updated","book")
     
+    data = inventory_schema.dump(inventory_item)
+    print(f"Sending book stock update for {inventory_item.book_id}")
+    
+    # Publish a message indicating that the stock has been updated
+    publish_message(json.dumps(data), "stock_updated", "book")
